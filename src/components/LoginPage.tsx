@@ -43,7 +43,7 @@ const LoginPage: React.FC = () => {
         <div className="auth-content">
           <div className="auth-form-section">
             <div className="auth-form">
-              <h1>{isSignUp ? 'Join Aisor' : 'Welcome Back'}</h1>
+              <h1>{isSignUp ? 'Join Aiser' : 'Welcome Back'}</h1>
               <p className="auth-subtitle">
                 {isSignUp 
                   ? 'Start your AI-powered investment journey in the Kenyan market' 
@@ -138,7 +138,7 @@ const LoginPage: React.FC = () => {
             <div className="visual-content">
               <h2>
                 <span className="highlight-text">AI-Powered Investment</span><br />
-                <span className="main-text">Advisory</span> <span className="scale-text">for Kenya</span>
+                <span className="main-text">Advisory</span>
               </h2>
               <p>
                 Real-time risk assessment, market data analytics, and intelligent 

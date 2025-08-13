@@ -13,7 +13,7 @@ const LandingPage: React.FC = () => {
           <div className="hero-text">
             <h1>
               <span className="highlight-text">AI-Powered Investment</span><br />
-              <span className="main-text">Advisory</span> <span className="scale-text">for Kenya</span>
+              <span className="main-text">Advisory</span>
             </h1>
             <p className="hero-description">
               Real-time risk assessment, market data analytics, and intelligent 
