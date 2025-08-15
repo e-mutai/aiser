@@ -101,7 +101,7 @@ const LoginPage: React.FC = () => {
         <div className="auth-content">
           <div className="auth-form-section">
             <div className="auth-form">
-              <h1>{isSignUp ? 'Join Aisor' : 'Welcome Back'}</h1>
+              <h1>{isSignUp ? 'Join Aiser' : 'Welcome Back'}</h1>
               <p className="auth-subtitle">
                 {isSignUp 
                   ? 'Start your AI-powered investment journey in the Kenyan market' 
