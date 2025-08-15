@@ -12,6 +12,10 @@ body {
   background-color: #f8f9fa;
 }
 
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+}
+
 .App {
   min-height: 100vh;
 }
@@ -65,7 +69,7 @@ body {
   align-items: center;
 }
 
-.log-in-btn, .back-home {
+.log-in-btn, .forgot-password {
   color: #6c757d;
   text-decoration: none;
   padding: 0.5rem 1rem;
@@ -74,7 +78,7 @@ body {
   transition: color 0.2s ease;
 }
 
-.log-in-btn:hover, .back-home:hover {
+.log-in-btn:hover, .forgot-password:hover {
   color: #000;
 }
 
@@ -182,12 +186,14 @@ body {
 }
 
 .auth-container {
-  padding-top: 80px;
+  padding-top: 120px;
+  padding-bottom: 2rem;
+  padding-left: 2rem;
+  padding-right: 2rem;
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2rem;
 }
 
 .auth-content {
@@ -273,16 +279,6 @@ body {
   width: auto;
 }
 
-.forgot-password {
-  color: #6c757d;
-  text-decoration: none;
-  transition: color 0.2s ease;
-}
-
-.forgot-password:hover {
-  color: #000;
-}
-
 .auth-btn {
   width: 100%;
   margin-bottom: 1.5rem;
@@ -356,33 +352,6 @@ body {
   line-height: 1.4;
 }
 
-.trusted-partners {
-  border-top: 1px solid #e9ecef;
-  padding-top: 2rem;
-}
-
-.partners-label {
-  font-size: 0.75rem;
-  color: #adb5bd;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 1rem;
-}
-
-.partners-logos {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1rem;
-}
-
-.partner-logo {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #adb5bd;
-  letter-spacing: 0.5px;
-  text-align: left;
-}
-
 /* Responsive Design */
 @media (max-width: 1024px) {
   .hero-content {
@@ -411,15 +380,6 @@ body {
 
   .visual-content h2 {
     font-size: 2rem;
-  }
-
-  .partners-logos {
-    grid-template-columns: repeat(4, 1fr);
-    justify-items: center;
-  }
-
-  .partner-logo {
-    text-align: center;
   }
 }
 
@@ -461,7 +421,10 @@ body {
   }
 
   .auth-container {
-    padding: 1rem;
+    padding-top: 100px;
+    padding-bottom: 1rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
   }
 
   .auth-form-section {
@@ -484,11 +447,6 @@ body {
     flex-direction: column;
     gap: 1rem;
     align-items: flex-start;
-  }
-
-  .partners-logos {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 0.75rem;
   }
 }
 
@@ -530,22 +488,6 @@ body {
 .dashboard-actions {
   display: flex;
   gap: 1rem;
-}
-
-.export-btn, .settings-btn {
-  padding: 0.75rem 1.5rem;
-  border-radius: 6px;
-  font-weight: 500;
-  border: 1px solid #e9ecef;
-  background: white;
-  color: #374151;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.export-btn:hover, .settings-btn:hover {
-  border-color: #000;
-  color: #000;
 }
 
 /* Portfolio Overview */
@@ -629,11 +571,11 @@ body {
   font-weight: 500;
 }
 
-.portfolio-change.positive {
+.portfolio-change.positive, .change.positive, .sentiment-value {
   color: #059669;
 }
 
-.portfolio-change.negative {
+.portfolio-change.negative, .change.negative {
   color: #dc2626;
 }
 
@@ -727,14 +669,6 @@ body {
   font-weight: 500;
 }
 
-.change.positive {
-  color: #059669;
-}
-
-.change.negative {
-  color: #dc2626;
-}
-
 .risk-indicator {
   display: flex;
   flex-direction: column;
@@ -756,33 +690,24 @@ body {
   transition: width 0.3s ease;
 }
 
-.risk-indicator.low .risk-fill {
-  background: #059669;
-}
-
-.risk-indicator.medium .risk-fill {
-  background: #f59e0b;
-}
-
-.risk-indicator.high .risk-fill {
-  background: #dc2626;
-}
-
 .risk-status {
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.5px;
 }
 
-.risk-indicator.low .risk-status {
+.risk-indicator.low .risk-fill, .risk-indicator.low .risk-status {
+  background: #059669;
   color: #059669;
 }
 
-.risk-indicator.medium .risk-status {
+.risk-indicator.medium .risk-fill, .risk-indicator.medium .risk-status {
+  background: #f59e0b;
   color: #f59e0b;
 }
 
-.risk-indicator.high .risk-status {
+.risk-indicator.high .risk-fill, .risk-indicator.high .risk-status {
+  background: #dc2626;
   color: #dc2626;
 }
 
@@ -914,9 +839,9 @@ body {
   flex-direction: column;
 }
 
-.sentiment-label {
-  font-size: 0.875rem;
+.sentiment-label, .volume, .insight-text {
   color: #6c757d;
+  font-size: 0.875rem;
 }
 
 .sentiment-value {
@@ -927,12 +852,6 @@ body {
 .ai-insight {
   flex: 1;
   text-align: right;
-}
-
-.insight-text {
-  font-size: 0.875rem;
-  color: #6c757d;
-  font-style: italic;
 }
 
 .market-data-table {
@@ -981,11 +900,6 @@ body {
 
 .table-row .change {
   font-weight: 500;
-}
-
-.volume {
-  color: #6c757d;
-  font-size: 0.875rem;
 }
 
 /* AI Insights */
@@ -1095,4 +1009,72 @@ body {
   .export-btn, .settings-btn {
     flex: 1;
   }
+}
+
+/* Dashboard Actions Enhancement */
+.dashboard-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.welcome-user {
+  color: #495057;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+/* KYC Form Styles */
+.kyc-form {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.form-section {
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
+  padding: 1.5rem;
+  background: #f8f9fa;
+}
+
+.section-title {
+  margin: 0 0 1rem 0;
+  color: #495057;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.form-group:last-child {
+  margin-bottom: 0;
+}
+
+.kyc-form input,
+.kyc-form select,
+.kyc-form textarea {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  border: 1px solid #ced4da;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  background: white;
+}
+
+.kyc-form input:focus,
+.kyc-form select:focus,
+.kyc-form textarea:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.kyc-form textarea {
+  resize: vertical;
+  min-height: 80px;
+  font-family: inherit;
 }

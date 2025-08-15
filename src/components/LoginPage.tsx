@@ -1,16 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import Header from './Header';
+import { useAuth } from '../contexts/AuthContext';
+import Layout from './Layout';
 
 const LoginPage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [isSignUp, setIsSignUp] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     confirmPassword: '',
-    fullName: ''
+    firstName: '',
+    lastName: '',
+    phoneNumber: ''
   });
 
   // Set initial mode based on URL
@@ -23,22 +30,73 @@ const LoginPage: React.FC = () => {
       ...formData,
       [e.target.name]: e.target.value
     });
+    if (error) setError('');
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle form submission here
-    console.log('Form submitted:', formData);
-    
-    // Simulate successful login/signup and redirect to dashboard
-    navigate('/dashboard');
+    setError('');
+    setMessage('');
+    setIsLoading(true);
+
+    try {
+      if (isSignUp) {
+        // Registration
+        if (formData.password !== formData.confirmPassword) {
+          setError('Passwords do not match');
+          setIsLoading(false);
+          return;
+        }
+
+        const response = await fetch('http://localhost:5000/api/register', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: formData.email,
+            password: formData.password,
+            first_name: formData.firstName,
+            last_name: formData.lastName,
+            phone_number: formData.phoneNumber
+          }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          setMessage('Registration successful! Please log in.');
+          setIsSignUp(false);
+          setFormData({
+            email: formData.email,
+            password: '',
+            confirmPassword: '',
+            firstName: '',
+            lastName: '',
+            phoneNumber: ''
+          });
+        } else {
+          setError(data.error || 'Registration failed. Please try again.');
+        }
+      } else {
+        // Login
+        const success = await login(formData.email, formData.password);
+        if (success) {
+          navigate('/dashboard');
+        } else {
+          setError('Invalid email or password');
+        }
+      }
+    } catch (error) {
+      console.error('Authentication error:', error);
+      setError('An error occurred. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <div className="login-page">
-      <Header />
-
-      {/* Main Content */}
+    <Layout>
       <div className="auth-container">
         <div className="auth-content">
           <div className="auth-form-section">
@@ -48,20 +106,76 @@ const LoginPage: React.FC = () => {
                 {isSignUp 
                   ? 'Start your AI-powered investment journey in the Kenyan market' 
                   : 'Access your investment advisory dashboard'}
-              </p>              <form onSubmit={handleSubmit} className="form">
-                {isSignUp && (
-                  <div className="form-group">
-                    <label htmlFor="fullName">Full Name</label>
-                    <input
-                      type="text"
-                      id="fullName"
-                      name="fullName"
-                      value={formData.fullName}
-                      onChange={handleInputChange}
-                      placeholder="Enter your full name"
-                      required
-                    />
+              </p>
+              
+              <form onSubmit={handleSubmit} className="form">
+                {error && (
+                  <div className="error-message" style={{
+                    padding: '10px',
+                    backgroundColor: '#fee',
+                    color: '#c33',
+                    borderRadius: '4px',
+                    marginBottom: '15px',
+                    border: '1px solid #fcc'
+                  }}>
+                    {error}
                   </div>
+                )}
+
+                {message && (
+                  <div className="success-message" style={{
+                    padding: '10px',
+                    backgroundColor: '#efe',
+                    color: '#363',
+                    borderRadius: '4px',
+                    marginBottom: '15px',
+                    border: '1px solid #cfc'
+                  }}>
+                    {message}
+                  </div>
+                )}
+
+                {isSignUp && (
+                  <>
+                    <div className="form-group">
+                      <label htmlFor="firstName">First Name</label>
+                      <input
+                        type="text"
+                        id="firstName"
+                        name="firstName"
+                        value={formData.firstName}
+                        onChange={handleInputChange}
+                        placeholder="Enter your first name"
+                        required
+                      />
+                    </div>
+                    
+                    <div className="form-group">
+                      <label htmlFor="lastName">Last Name</label>
+                      <input
+                        type="text"
+                        id="lastName"
+                        name="lastName"
+                        value={formData.lastName}
+                        onChange={handleInputChange}
+                        placeholder="Enter your last name"
+                        required
+                      />
+                    </div>
+                    
+                    <div className="form-group">
+                      <label htmlFor="phoneNumber">Phone Number</label>
+                      <input
+                        type="tel"
+                        id="phoneNumber"
+                        name="phoneNumber"
+                        value={formData.phoneNumber}
+                        onChange={handleInputChange}
+                        placeholder="Enter your phone number"
+                        required
+                      />
+                    </div>
+                  </>
                 )}
 
                 <div className="form-group">
@@ -115,8 +229,11 @@ const LoginPage: React.FC = () => {
                   </div>
                 )}
 
-                <button type="submit" className="auth-btn">
-                  {isSignUp ? 'Create Account' : 'Sign In'}
+                <button type="submit" className="auth-btn" disabled={isLoading}>
+                  {isLoading 
+                    ? (isSignUp ? 'Creating Account...' : 'Signing In...')
+                    : (isSignUp ? 'Create Account' : 'Sign In')
+                  }
                 </button>
 
                 <div className="auth-switch">
@@ -138,7 +255,7 @@ const LoginPage: React.FC = () => {
             <div className="visual-content">
               <h2>
                 <span className="highlight-text">AI-Powered Investment</span><br />
-                <span className="main-text">Advisory</span> <span className="scale-text">for Kenya</span>
+                <span className="main-text">Advisory</span>
               </h2>
               <p>
                 Real-time risk assessment, market data analytics, and intelligent 
@@ -157,24 +274,14 @@ const LoginPage: React.FC = () => {
                 </div>
                 <div className="feature-item">
                   <div className="feature-title">Local Market Insights</div>
-                  <div className="feature-desc">Tailored recommendations for Kenyan investors</div>
-                </div>
-              </div>
-
-              <div className="trusted-partners">
-                <p className="partners-label">Trusted by leading Kenyan institutions</p>
-                <div className="partners-logos">
-                  <div className="partner-logo">NAIROBI SECURITIES EXCHANGE</div>
-                  <div className="partner-logo">EQUITY BANK</div>
-                  <div className="partner-logo">KCB GROUP</div>
-                  <div className="partner-logo">SAFARICOM</div>
+                  <div className="feature-desc">Tailored recommendations for investors</div>
                 </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </Layout>
   );
 };
 

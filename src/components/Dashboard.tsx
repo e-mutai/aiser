@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
-import Header from './Header';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import Layout from './Layout';
 
 interface RiskMetric {
   label: string;
@@ -26,18 +28,58 @@ interface MarketData {
 }
 
 const Dashboard: React.FC = () => {
+  const { user, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
   const [selectedTimeframe, setSelectedTimeframe] = useState('1D');
+  const [kycStatus, setKycStatus] = useState<'pending' | 'verified' | 'incomplete' | 'loading'>('loading');
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate('/login');
+    }
+  }, [isAuthenticated, navigate]);
+
+  useEffect(() => {
+    // Check KYC status when component mounts
+    const checkKycStatus = async () => {
+      if (user) {
+        try {
+          const token = localStorage.getItem('aiser_token');
+          const response = await fetch('http://localhost:5000/api/profile', {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          if (response.ok) {
+            const profileData = await response.json();
+            setKycStatus(profileData.user.kyc_verified ? 'verified' : 'pending');
+          } else {
+            setKycStatus('incomplete');
+          }
+        } catch (error) {
+          console.error('Error checking KYC status:', error);
+          setKycStatus('incomplete');
+        }
+      }
+    };
+
+    checkKycStatus();
+  }, [user]);
+
+  if (!user) {
+    return <div>Loading...</div>;
+  }
   
   // Mock data - in real app, this would come from NSE API
-  const portfolioValue = 2547800; // KES
+  const portfolioValue = 2547800;
   const portfolioChange = 12.5;
   const portfolioChangePercent = 0.49;
   
   const riskMetrics: RiskMetric[] = [
     { label: 'Portfolio Risk Score', value: 6.2, change: -0.3, status: 'medium' },
-    { label: 'Volatility Index', value: 15.4, change: 2.1, status: 'medium' },
-    { label: 'Diversification Score', value: 8.7, change: 0.5, status: 'low' },
-    { label: 'Market Correlation', value: 0.68, change: -0.04, status: 'medium' }
+    { label: 'Volatility Index', value: 15.4, change: 2.1, status: 'medium' }
   ];
   
   const recommendations: Recommendation[] = [
@@ -53,34 +95,22 @@ const Dashboard: React.FC = () => {
       id: '2',
       type: 'hold',
       stock: 'SCOM (Safaricom)',
-      reason: 'Stable dividend yield, M-Pesa growth in Ethiopia showing promise',
+      reason: 'Stable dividend yield, M-Pesa growth showing promise',
       confidence: 92,
       potential: '+5-8%'
-    },
-    {
-      id: '3',
-      type: 'sell',
-      stock: 'BAMB (Bamburi Cement)',
-      reason: 'Construction sector headwinds and rising input costs',
-      confidence: 74,
-      potential: '-8-12%'
     }
   ];
   
   const marketData: MarketData[] = [
     { symbol: 'NSE20', price: 1847.23, change: 15.67, changePercent: 0.86, volume: '2.1M' },
     { symbol: 'EQTY', price: 52.50, change: 1.25, changePercent: 2.44, volume: '892K' },
-    { symbol: 'SCOM', price: 28.75, change: -0.50, changePercent: -1.71, volume: '1.5M' },
-    { symbol: 'KCB', price: 41.00, change: 0.75, changePercent: 1.86, volume: '456K' },
-    { symbol: 'COOP', price: 12.85, change: 0.15, changePercent: 1.18, volume: '623K' }
+    { symbol: 'SCOM', price: 28.75, change: -0.50, changePercent: -1.71, volume: '1.5M' }
   ];
 
   const timeframes = ['1D', '1W', '1M', '3M', '1Y'];
 
   return (
-    <div className="dashboard">
-      <Header />
-      
+    <Layout>
       <div className="dashboard-container">
         {/* Dashboard Header */}
         <div className="dashboard-header">
@@ -89,8 +119,23 @@ const Dashboard: React.FC = () => {
             <p className="dashboard-subtitle">AI-powered insights for your Kenyan portfolio</p>
           </div>
           <div className="dashboard-actions">
-            <button className="export-btn">Export Report</button>
-            <button className="settings-btn">Settings</button>
+            {kycStatus !== 'verified' && (
+              <button 
+                onClick={() => navigate('/kyc')}
+                style={{
+                  backgroundColor: kycStatus === 'incomplete' ? '#dc2626' : '#f59e0b',
+                  color: 'white',
+                  border: 'none',
+                  padding: '8px 16px',
+                  borderRadius: '6px',
+                  marginRight: '10px',
+                  cursor: 'pointer'
+                }}
+              >
+                {kycStatus === 'loading' ? 'Checking...' : 
+                 kycStatus === 'pending' ? 'Complete KYC' : 'KYC Required'}
+              </button>
+            )}
           </div>
         </div>
 
@@ -238,29 +283,15 @@ const Dashboard: React.FC = () => {
               <div className="insight-card">
                 <div className="insight-icon">🎯</div>
                 <div className="insight-content">
-                  <h4>Sector Rotation Alert</h4>
+                  <h4>Market Alert</h4>
                   <p>AI detects increasing institutional interest in telecommunications stocks. Consider rebalancing.</p>
-                </div>
-              </div>
-              <div className="insight-card">
-                <div className="insight-icon">⚡</div>
-                <div className="insight-content">
-                  <h4>Volatility Warning</h4>
-                  <p>Market volatility expected to increase by 15% due to upcoming monetary policy announcement.</p>
-                </div>
-              </div>
-              <div className="insight-card">
-                <div className="insight-icon">💡</div>
-                <div className="insight-content">
-                  <h4>Opportunity Identified</h4>
-                  <p>Agricultural stocks showing strong technical patterns. 78% probability of upward movement.</p>
                 </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </Layout>
   );
 };
 

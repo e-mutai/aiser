@@ -1,11 +1,11 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import Header from './Header';
+import Layout from './Layout';
 
 const LandingPage: React.FC = () => {
   return (
-    <div className="landing-page">
-      <Header />
+    <Layout>
+      <div className="landing-page">
       
       {/* Hero Section */}
       <section className="hero">
@@ -13,14 +13,14 @@ const LandingPage: React.FC = () => {
           <div className="hero-text">
             <h1>
               <span className="highlight-text">AI-Powered Investment</span><br />
-              <span className="main-text">Advisory</span> <span className="scale-text">for Kenya</span>
+              <span className="main-text">Advisory</span>
             </h1>
             <p className="hero-description">
               Real-time risk assessment, market data analytics, and intelligent 
               investment recommendations powered by NSE market data and advanced 
               AI models—tailored for the Kenyan investment landscape.
             </p>
-            <Link to="/signup" className="request-demo-btn">Get Started</Link>
+            <Link to="/login" className="request-demo-btn">Get Started</Link>
           </div>
           
           <div className="hero-logos">
@@ -41,7 +41,8 @@ const LandingPage: React.FC = () => {
           </div>
         </div>
       </section>
-    </div>
+      </div>
+    </Layout>
   );
 };
 
