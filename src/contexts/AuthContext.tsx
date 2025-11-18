@@ -35,15 +35,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      console.log('Attempting login for:', email);
-      const response = await fetch('http://localhost:5000/api/login', {
+      const response = await fetch('http://localhost:5000/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
 
       const data = await response.json();
-      console.log('Login response:', { status: response.status, data });
 
       if (response.ok && data.token) {
         const userData = {
@@ -55,13 +53,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           kycStatus: data.user.kycStatus
         };
         
-        console.log('Setting user data:', userData);
         setUser(userData);
         localStorage.setItem('aiser_user', JSON.stringify(userData));
         localStorage.setItem('aiser_token', data.token);
         return true;
       }
-      console.log('Login failed - no token or bad response');
       return false;
     } catch (error) {
       console.error('Login error:', error);
@@ -71,8 +67,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const register = async (userData: any): Promise<{ success: boolean; needsKyc?: boolean }> => {
     try {
-      console.log('Attempting registration for:', userData.email);
-      const response = await fetch('http://localhost:5000/api/register', {
+      const response = await fetch('http://localhost:5000/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -85,7 +80,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       const data = await response.json();
-      console.log('Register response:', { status: response.status, data });
 
       if (response.ok && data.success && data.token) {
         const newUserData = {
@@ -97,15 +91,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           kycStatus: data.user.kycStatus
         };
         
-        console.log('Setting user data:', newUserData);
         setUser(newUserData);
         localStorage.setItem('aiser_user', JSON.stringify(newUserData));
         localStorage.setItem('aiser_token', data.token);
         
-        // Return success with KYC requirement
         return { success: true, needsKyc: data.needsKyc };
       }
-      console.log('Registration failed - no token or bad response');
       return { success: false };
     } catch (error) {
       console.error('Registration error:', error);

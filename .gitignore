@@ -11,6 +11,10 @@
 # production
 /build
 
+# server logs
+server.log
+nohup.out
+
 # misc
 .DS_Store
 .env.local

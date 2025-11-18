@@ -5,6 +5,9 @@ import LandingPage from './components/LandingPage';
 import LoginPage from './components/LoginPage';
 import Dashboard from './components/Dashboard';
 import KYCPage from './components/KYCPage';
+import MarketPage from './components/MarketPage';
+import PortfolioPage from './components/PortfolioPage';
+import PerformancePage from './components/PerformancePage';
 import './styles.css';
 
 function App() {
@@ -18,6 +21,9 @@ function App() {
             <Route path="/signup" element={<LoginPage />} />
             <Route path="/kyc" element={<KYCPage />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/market" element={<MarketPage />} />
+            <Route path="/portfolio" element={<PortfolioPage />} />
+            <Route path="/performance" element={<PerformancePage />} />
           </Routes>
         </div>
       </Router>

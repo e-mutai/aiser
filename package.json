@@ -40,8 +40,8 @@
     ]
   },
   "devDependencies": {
-    "nodemon": "^3.0.1",
-    "concurrently": "^7.6.0"
+    "concurrently": "^7.6.0",
+    "nodemon": "^3.0.1"
   },
   "browserslist": {
     "production": [

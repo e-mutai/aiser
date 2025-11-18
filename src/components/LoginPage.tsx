@@ -33,6 +33,10 @@ const LoginPage: React.FC = () => {
     if (error) setError('');
   };
 
+  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    e.target.removeAttribute('readonly');
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -48,7 +52,7 @@ const LoginPage: React.FC = () => {
           return;
         }
 
-        const response = await fetch('http://localhost:5000/api/register', {
+        const response = await fetch('http://localhost:5000/api/auth/register', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -56,9 +60,9 @@ const LoginPage: React.FC = () => {
           body: JSON.stringify({
             email: formData.email,
             password: formData.password,
-            first_name: formData.firstName,
-            last_name: formData.lastName,
-            phone_number: formData.phoneNumber
+            firstName: formData.firstName,
+            lastName: formData.lastName,
+            phoneNumber: formData.phoneNumber
           }),
         });
 
@@ -108,7 +112,7 @@ const LoginPage: React.FC = () => {
                   : 'Access your investment advisory dashboard'}
               </p>
               
-              <form onSubmit={handleSubmit} className="form">
+              <form onSubmit={handleSubmit} className="form" autoComplete="off">
                 {error && (
                   <div className="error-message" style={{
                     padding: '10px',
@@ -186,7 +190,11 @@ const LoginPage: React.FC = () => {
                     name="email"
                     value={formData.email}
                     onChange={handleInputChange}
+                    onFocus={handleFocus}
                     placeholder="Enter your email"
+                    autoComplete="off"
+                    data-form-type="other"
+                    readOnly
                     required
                   />
                 </div>
@@ -199,7 +207,11 @@ const LoginPage: React.FC = () => {
                     name="password"
                     value={formData.password}
                     onChange={handleInputChange}
+                    onFocus={handleFocus}
                     placeholder="Enter your password"
+                    autoComplete="off"
+                    data-form-type="other"
+                    readOnly
                     required
                   />
                 </div>
@@ -213,19 +225,13 @@ const LoginPage: React.FC = () => {
                       name="confirmPassword"
                       value={formData.confirmPassword}
                       onChange={handleInputChange}
+                      onFocus={handleFocus}
                       placeholder="Confirm your password"
+                      autoComplete="off"
+                      data-form-type="other"
+                      readOnly
                       required
                     />
-                  </div>
-                )}
-
-                {!isSignUp && (
-                  <div className="form-options">
-                    <div className="remember-me">
-                      <input type="checkbox" id="remember" />
-                      <label htmlFor="remember">Remember me</label>
-                    </div>
-                    <a href="#forgot" className="forgot-password">Forgot password?</a>
                   </div>
                 )}
 
