@@ -234,4 +234,4 @@ This project is licensed under the MIT License.
 
 - NSE for market data
 - scikit-learn for ML framework
-- React team for the amazing frontend library
+- Me🗿 for the amazing frontend library
