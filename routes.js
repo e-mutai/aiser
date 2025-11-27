@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { generateRecommendations, clearCache, getCacheStats } = require('./recommendation-engine');
+const { COLLECTIONS } = require('./mongodb');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'simple-secret-key';
 
@@ -28,7 +30,7 @@ function authenticateToken(req, res, next) {
 router.post('/auth/register', async (req, res) => {
   try {
     const { email, password, firstName, lastName, phoneNumber } = req.body;
-    const pool = req.app.locals.pool;
+    const pool = req.app.get('pool');
 
     const existingUser = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     if (existingUser.rows.length > 0) {
@@ -44,6 +46,13 @@ router.post('/auth/register', async (req, res) => {
 
     const user = result.rows[0];
     const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: '24h' });
+
+    // Store last login timestamp and token for audit / session tracking
+    try {
+      await pool.query('UPDATE users SET last_login = NOW(), last_token = $1 WHERE id = $2', [token, user.id]);
+    } catch (err) {
+      console.warn('Could not update user login metadata:', err.message);
+    }
 
     res.status(201).json({
       success: true,
@@ -70,7 +79,7 @@ router.post('/auth/register', async (req, res) => {
 router.post('/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    const pool = req.app.locals.pool;
+    const pool = req.app.get('pool');
 
     const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     if (result.rows.length === 0) {
@@ -84,6 +93,13 @@ router.post('/auth/login', async (req, res) => {
     }
 
     const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: '24h' });
+
+    // Update last login and store token
+    try {
+      await pool.query('UPDATE users SET last_login = NOW(), last_token = $1 WHERE id = $2', [token, user.id]);
+    } catch (err) {
+      console.warn('Could not update last_login for user:', err.message);
+    }
 
     res.json({
       success: true,
@@ -112,9 +128,9 @@ router.post('/auth/login', async (req, res) => {
 // Get user profile - GET /api/user/profile
 router.get('/user/profile', authenticateToken, async (req, res) => {
   try {
-    const pool = req.app.locals.pool;
+    const pool = req.app.get('pool');
     const result = await pool.query(
-      'SELECT id, email, first_name, last_name, phone_number, kyc_status, kyc_verified FROM users WHERE id = $1',
+      'SELECT id, email, first_name, last_name, phone_number, kyc_status, kyc_verified, risk_score, investment_horizon FROM users WHERE id = $1',
       [req.user.userId]
     );
     
@@ -123,6 +139,14 @@ router.get('/user/profile', authenticateToken, async (req, res) => {
     }
 
     const user = result.rows[0];
+    
+    // Get KYC details if available
+    const kycResult = await pool.query(
+      'SELECT risk_profile FROM kyc_data WHERE user_id = $1',
+      [req.user.userId]
+    );
+    const kycData = kycResult.rows[0];
+
     res.json({ 
       user: { 
         id: user.id, 
@@ -131,7 +155,10 @@ router.get('/user/profile', authenticateToken, async (req, res) => {
         lastName: user.last_name,
         phoneNumber: user.phone_number,
         kycStatus: user.kyc_status,
-        kyc_verified: user.kyc_verified
+        kycVerified: user.kyc_verified,
+        riskScore: user.risk_score,
+        riskProfile: kycData?.risk_profile || 'Unknown',
+        investmentHorizon: user.investment_horizon
       }
     });
   } catch (error) {
@@ -140,8 +167,59 @@ router.get('/user/profile', authenticateToken, async (req, res) => {
   }
 });
 
+// Update user risk profile - PUT /api/user/risk-profile
+router.put('/user/risk-profile', authenticateToken, async (req, res) => {
+  try {
+    const { riskScore, investmentHorizon } = req.body;
+    const userId = req.user.userId;
+    const pool = req.app.get('pool');
+
+    // Validate inputs
+    if (riskScore !== undefined && (riskScore < 0 || riskScore > 100)) {
+      return res.status(400).json({ message: 'Risk score must be between 0 and 100' });
+    }
+
+    const validHorizons = ['short', 'medium', 'long', '1-3', '3-5', '5-10', '10+'];
+    if (investmentHorizon && !validHorizons.includes(investmentHorizon)) {
+      return res.status(400).json({ message: 'Invalid investment horizon' });
+    }
+
+    // Update users table
+    const updates = [];
+    const values = [];
+    let paramCount = 1;
+
+    if (riskScore !== undefined) {
+      updates.push(`risk_score = $${paramCount++}`);
+      values.push(riskScore);
+    }
+    if (investmentHorizon) {
+      updates.push(`investment_horizon = $${paramCount++}`);
+      values.push(investmentHorizon);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ message: 'No updates provided' });
+    }
+
+    values.push(userId);
+    await pool.query(
+      `UPDATE users SET ${updates.join(', ')} WHERE id = $${paramCount}`,
+      values
+    );
+
+    res.json({
+      success: true,
+      message: 'Risk profile updated successfully. New recommendations will be generated on next fetch.'
+    });
+  } catch (error) {
+    console.error('Update risk profile error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // ============================================
-// KYC ROUTES (Protected)
+// KYC ROUTES
 // ============================================
 
 // KYC submission endpoint - POST /api/kyc/submit
@@ -155,7 +233,7 @@ router.post('/kyc/submit', authenticateToken, async (req, res) => {
     } = req.body;
 
     const userId = req.user.userId;
-    const pool = req.app.locals.pool;
+    const pool = req.app.get('pool');
 
     // Ensure table has the newer columns (lightweight migration)
     await pool.query(`ALTER TABLE kyc_data
@@ -235,8 +313,11 @@ router.post('/kyc/submit', authenticateToken, async (req, res) => {
       ]);
     }
 
-    // Update user KYC status to submitted
-    await pool.query('UPDATE users SET kyc_status = $1 WHERE id = $2', ['submitted', userId]);
+    // Update user KYC status AND risk profile in users table
+    await pool.query(
+      'UPDATE users SET kyc_status = $1, risk_score = $2, investment_horizon = $3 WHERE id = $4', 
+      ['submitted', risk_score, investmentHorizon || 'medium', userId]
+    );
 
     // Auto-verify after 3 seconds (demo only)
     setTimeout(async () => {
@@ -304,6 +385,114 @@ router.get('/market/top-volume', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch top volume stocks'
+    });
+  }
+});
+
+// ============================================
+// RECOMMENDATIONS ROUTES
+// ============================================
+
+// Get AI-powered recommendations - GET /api/recommendations
+router.get('/recommendations', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const pool = req.app.get('pool');
+
+    // Get user's risk profile from users table
+    const userResult = await pool.query(
+      'SELECT risk_score, investment_horizon FROM users WHERE id = $1',
+      [userId]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    const user = userResult.rows[0];
+    const riskScore = user.risk_score || 50;
+    let horizon = user.investment_horizon || 'medium';
+    
+    // Map KYC horizon values to ML model values
+    const horizonMap = {
+      '1-3': 'short',
+      '3-5': 'medium',
+      '5-10': 'long',
+      '10+': 'long',
+      'short': 'short',
+      'medium': 'medium',
+      'long': 'long'
+    };
+    horizon = horizonMap[horizon] || 'medium';
+    
+    const topCount = parseInt(req.query.count) || 5;
+
+    // Use cached recommendation engine
+    const recommendations = await generateRecommendations(riskScore, horizon, topCount);
+
+    // Save recommendations to MongoDB for historical tracking
+    const getDB = req.app.get('getDB');
+    const mongodb = await getDB();
+    await mongodb.collection(COLLECTIONS.RECOMMENDATIONS).insertOne({
+      user_id: userId,
+      risk_score: riskScore,
+      horizon,
+      recommendations,
+      timestamp: new Date(),
+      generated_at: new Date().toISOString()
+    });
+
+    res.json({
+      success: true,
+      user_risk_score: riskScore,
+      user_horizon: horizon,
+      recommendations,
+      generated_at: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Recommendations error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch recommendations',
+      error: error.message
+    });
+  }
+});
+
+// Clear recommendations cache - POST /api/recommendations/clear-cache (admin only)
+router.post('/recommendations/clear-cache', authenticateToken, (req, res) => {
+  try {
+    clearCache();
+    res.json({
+      success: true,
+      message: 'Cache cleared successfully'
+    });
+  } catch (error) {
+    console.error('❌ Cache clear error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to clear cache'
+    });
+  }
+});
+
+// Get cache statistics - GET /api/recommendations/cache-stats (admin only)
+router.get('/recommendations/cache-stats', authenticateToken, (req, res) => {
+  try {
+    const stats = getCacheStats();
+    res.json({
+      success: true,
+      stats
+    });
+  } catch (error) {
+    console.error('❌ Cache stats error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get cache stats'
     });
   }
 });

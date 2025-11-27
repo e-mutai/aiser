@@ -1,4 +1,5 @@
 const https = require('https');
+const { getDB, COLLECTIONS } = require('./mongodb');
 
 // Cache for scraped data (refresh every 5 minutes)
 let cachedData = null;
@@ -28,6 +29,12 @@ async function fetchNSEData() {
           const parsed = parseNSEData(data);
           cachedData = parsed;
           lastFetchTime = now;
+          
+          // Save to MongoDB asynchronously (don't block response)
+          saveToMongoDB(parsed).catch(err => {
+            console.error('❌ Error saving to MongoDB:', err);
+          });
+          
           resolve(parsed);
         } catch (error) {
           reject(error);
@@ -156,7 +163,48 @@ function getTopByVolume(count = 5) {
   return cachedData.stocks.slice(0, count);
 }
 
+/**
+ * Save market data to MongoDB
+ */
+async function saveToMongoDB(data) {
+  try {
+    const db = await getDB();
+    const marketDataCollection = db.collection(COLLECTIONS.MARKET_DATA);
+    
+    // Save complete market snapshot
+    const snapshot = {
+      timestamp: new Date(),
+      nasi: data.nasi,
+      marketCap: data.marketCap,
+      topGainers: data.topGainers,
+      topLosers: data.topLosers,
+      stockCount: data.stocks.length,
+      lastUpdated: data.lastUpdated
+    };
+    
+    await marketDataCollection.insertOne(snapshot);
+    
+    // Save individual stock prices
+    const stockPricesCollection = db.collection(COLLECTIONS.STOCK_PRICES);
+    const stockDocuments = data.stocks.map(stock => ({
+      ...stock,
+      timestamp: new Date(),
+      date: new Date().toISOString().split('T')[0]
+    }));
+    
+    if (stockDocuments.length > 0) {
+      await stockPricesCollection.insertMany(stockDocuments);
+    }
+    
+    console.log('✅ Market data saved to MongoDB');
+  } catch (error) {
+    console.error('❌ MongoDB save error:', error);
+    throw error;
+  }
+}
+
 module.exports = {
   fetchNSEData,
-  getTopByVolume
+  getTopByVolume,
+  saveToMongoDB
 };

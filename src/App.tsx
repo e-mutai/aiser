@@ -8,6 +8,7 @@ import KYCPage from './components/KYCPage';
 import MarketPage from './components/MarketPage';
 import PortfolioPage from './components/PortfolioPage';
 import PerformancePage from './components/PerformancePage';
+import RecommendationsPage from './components/RecommendationsPage';
 import './styles.css';
 
 function App() {
@@ -24,6 +25,7 @@ function App() {
             <Route path="/market" element={<MarketPage />} />
             <Route path="/portfolio" element={<PortfolioPage />} />
             <Route path="/performance" element={<PerformancePage />} />
+            <Route path="/recommendations" element={<RecommendationsPage />} />
           </Routes>
         </div>
       </Router>

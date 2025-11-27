@@ -7,12 +7,14 @@ interface User {
   lastName: string;
   role: string;
   kycStatus: string;
+  kycVerified?: boolean;
 }
 
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<boolean>;
   register: (userData: any) => Promise<{ success: boolean; needsKyc?: boolean }>;
+  updateUser: (patch: Partial<User>) => void;
   logout: () => void;
   isAuthenticated: boolean;
   isLoading: boolean;
@@ -25,12 +27,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for stored auth data on app load
-    const storedUser = localStorage.getItem('aiser_user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setIsLoading(false);
+    // Check for stored auth data on app load and sync with server
+    const initAuth = async () => {
+      const storedUser = localStorage.getItem('aiser_user');
+      const storedToken = localStorage.getItem('aiser_token');
+      
+      if (storedUser && storedToken) {
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
+        
+        // Sync with server to get latest KYC status
+        try {
+          const response = await fetch('http://localhost:5000/api/user/profile', {
+            headers: {
+              'Authorization': `Bearer ${storedToken}`,
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            const updatedUser = {
+              ...parsedUser,
+              kycStatus: data.user.kycStatus,
+              kycVerified: data.user.kycVerified
+            };
+            setUser(updatedUser);
+            localStorage.setItem('aiser_user', JSON.stringify(updatedUser));
+          }
+        } catch (error) {
+          console.error('Failed to sync user data:', error);
+        }
+      }
+      setIsLoading(false);
+    };
+    
+    initAuth();
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
@@ -47,10 +79,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const userData = {
           id: data.user.id.toString(),
           email: data.user.email,
-          firstName: '',
-          lastName: '',
+          firstName: data.user.firstName || '',
+          lastName: data.user.lastName || '',
           role: 'user',
-          kycStatus: data.user.kycStatus
+          kycStatus: data.user.kycStatus,
+          kycVerified: data.user.kycVerified || false
         };
         
         setUser(userData);
@@ -64,6 +97,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return false;
     }
   };
+
+    const updateUser = (patch: Partial<User>) => {
+      setUser(prev => {
+        const updated = { ...(prev || {}), ...(patch || {}) } as User;
+        try {
+          localStorage.setItem('aiser_user', JSON.stringify(updated));
+        } catch (err) {
+          // ignore localStorage errors
+        }
+        return updated;
+      });
+    };
 
   const register = async (userData: any): Promise<{ success: boolean; needsKyc?: boolean }> => {
     try {
@@ -88,7 +133,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           firstName: data.user.firstName || '',
           lastName: data.user.lastName || '',
           role: 'user',
-          kycStatus: data.user.kycStatus
+          kycStatus: data.user.kycStatus,
+          kycVerified: data.user.kycVerified || false
         };
         
         setUser(newUserData);
@@ -116,6 +162,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user, 
         login, 
         register, 
+        updateUser,
         logout, 
         isAuthenticated: !!user, 
         isLoading 

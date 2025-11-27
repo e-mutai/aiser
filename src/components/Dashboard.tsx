@@ -46,15 +46,16 @@ interface NSEData {
 const Dashboard: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const [selectedTimeframe, setSelectedTimeframe] = useState('1D');
   const [kycStatus, setKycStatus] = useState<'pending' | 'verified' | 'incomplete' | 'loading'>('loading');
   const [activeSection, setActiveSection] = useState('overview');
   const [nseData, setNseData] = useState<NSEData | null>(null);
   const [marketLoading, setMarketLoading] = useState(true);
-
-  const handleSectionChange = (section: string) => {
-    setActiveSection(section);
-  };
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [riskMetrics, setRiskMetrics] = useState<RiskMetric[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  const timeframes = ['1D', '1W', '1M', '1Y'];
+  const [selectedTimeframe, setSelectedTimeframe] = useState('1D');
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -77,7 +78,7 @@ const Dashboard: React.FC = () => {
           
           if (response.ok) {
             const profileData = await response.json();
-            setKycStatus(profileData.user.kyc_verified ? 'verified' : 'pending');
+            setKycStatus(profileData.user.kycVerified ? 'verified' : 'pending');
           } else {
             setKycStatus('incomplete');
           }
@@ -113,46 +114,80 @@ const Dashboard: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    // Fetch real recommendations and calculate risk metrics
+    const fetchDashboardData = async () => {
+      if (!user) return;
+      
+      try {
+        setLoading(true);
+        const token = localStorage.getItem('aiser_token');
+        
+        // Fetch recommendations
+        const recResponse = await fetch('http://localhost:5000/api/recommendations?count=2', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (recResponse.ok) {
+          const recData = await recResponse.json();
+          const formattedRecs = recData.recommendations.map((rec: any, index: number) => ({
+            id: String(index + 1),
+            type: rec.action.toLowerCase() as 'buy' | 'hold' | 'sell',
+            stock: `${rec.ticker} (${rec.company})`,
+            reason: rec.reason,
+            confidence: rec.confidence,
+            potential: rec.predicted_return
+          }));
+          setRecommendations(formattedRecs);
+        }
+        
+        // Fetch user profile to get risk score
+        const profileResponse = await fetch('http://localhost:5000/api/user/profile', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (profileResponse.ok) {
+          const profileData = await profileResponse.json();
+          const userRiskScore = profileData.user.riskScore || 50;
+          
+          // Calculate risk metrics from user data and market data
+          const portfolioRisk = (userRiskScore / 10).toFixed(1);
+          const volatilityIndex = 15.4; // Use default or calculate from market data
+          
+          setRiskMetrics([
+            { 
+              label: 'Portfolio Risk Score', 
+              value: parseFloat(portfolioRisk), 
+              change: -0.3, 
+              status: userRiskScore <= 40 ? 'low' : userRiskScore <= 70 ? 'medium' : 'high'
+            },
+            { 
+              label: 'Volatility Index', 
+              value: volatilityIndex, 
+              change: 2.1, 
+              status: volatilityIndex <= 12 ? 'low' : volatilityIndex <= 18 ? 'medium' : 'high'
+            },
+          ]);
+        }
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, [user, nseData]);
+
   if (!user) {
     return <div>Loading...</div>;
   }
-  
-  // Mock data - in real app, this would come from NSE API
-  const portfolioValue = 2547800;
-  const portfolioChange = 12.5;
-  const portfolioChangePercent = 0.49;
-  
-  const riskMetrics: RiskMetric[] = [
-    { label: 'Portfolio Risk Score', value: 6.2, change: -0.3, status: 'medium' },
-    { label: 'Volatility Index', value: 15.4, change: 2.1, status: 'medium' }
-  ];
-  
-  const recommendations: Recommendation[] = [
-    {
-      id: '1',
-      type: 'buy',
-      stock: 'EQTY (Equity Bank)',
-      reason: 'Strong Q3 earnings and expanding digital banking services',
-      confidence: 87,
-      potential: '+12-18%'
-    },
-    {
-      id: '2',
-      type: 'hold',
-      stock: 'SCOM (Safaricom)',
-      reason: 'Stable dividend yield, M-Pesa growth showing promise',
-      confidence: 92,
-      potential: '+5-8%'
-    }
-  ];
-  
-  const marketData: MarketData[] = [
-    { symbol: 'NSE20', price: 1847.23, change: 15.67, changePercent: 0.86, volume: '2.1M' },
-    { symbol: 'EQTY', price: 52.50, change: 1.25, changePercent: 2.44, volume: '892K' },
-    { symbol: 'SCOM', price: 28.75, change: -0.50, changePercent: -1.71, volume: '1.5M' }
-  ];
-
-  const timeframes = ['1D', '1W', '1M', '3M', '1Y'];
 
   return (
     <Layout>
@@ -193,7 +228,7 @@ const Dashboard: React.FC = () => {
                 </span>
                 <span className="nav-label">Performance</span>
               </button>
-              <button className="nav-item">
+              <button className="nav-item" onClick={() => navigate('/recommendations')}>
                 <span className="nav-icon">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <circle cx="12" cy="12" r="10"></circle>

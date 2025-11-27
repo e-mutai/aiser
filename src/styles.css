@@ -795,7 +795,7 @@ code {
 }
 
 .ai-label {
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  background: #000000;
   color: white;
   padding: 0.35rem 0.75rem;
   border-radius: 12px;

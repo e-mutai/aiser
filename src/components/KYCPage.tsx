@@ -26,7 +26,7 @@ interface RiskProfileData {
 
 const KYCPage: React.FC = () => {
   const navigate = useNavigate();
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, updateUser } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [riskScore, setRiskScore] = useState(0);
@@ -174,6 +174,24 @@ const KYCPage: React.FC = () => {
       
       if (response.ok && data.success) {
         console.log('✅ KYC successful! Redirecting to dashboard...');
+        // Update client-side user state so UI reflects new KYC status
+        try {
+          updateUser({ 
+            kycStatus: 'verified',
+            kycVerified: true 
+          } as any);
+          
+          // Also update localStorage directly to ensure persistence
+          const storedUserStr = localStorage.getItem('aiser_user');
+          if (storedUserStr) {
+            const storedUser = JSON.parse(storedUserStr);
+            storedUser.kycStatus = 'verified';
+            storedUser.kycVerified = true;
+            localStorage.setItem('aiser_user', JSON.stringify(storedUser));
+          }
+        } catch (err) {
+          console.warn('Could not update local user state:', err);
+        }
         // Keep the button disabled and navigate
         navigate('/dashboard', { replace: true });
       } else {
