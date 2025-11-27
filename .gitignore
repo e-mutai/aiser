@@ -24,6 +24,8 @@ __pycache__/
 .Python
 ml/venv/
 ml/**/__pycache__/
+ml/ml_model.joblib
+*.joblib
 
 # environment variables
 .env
