@@ -2,6 +2,31 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Layout from './Layout';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+} from 'chart.js';
+import { Line, Pie } from 'react-chartjs-2';
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
 
 interface Holding {
   ticker: string;
@@ -122,10 +147,93 @@ const PortfolioPage: React.FC = () => {
   // Asset allocation by sector (mock data)
   const assetAllocation = [
     { sector: 'Telecommunications', value: 14500, percent: 18.4, color: '#3b82f6' },
-    { sector: 'Banking & Finance', value: 45425, percent: 57.7, color: '#10b981' },
+    { sector: 'Banking & Finance', value: 32425, percent: 57.7, color: '#10b981' },
     { sector: 'Manufacturing', value: 23500, percent: 29.9, color: '#f59e0b' },
     { sector: 'Insurance', value: 8700, percent: 11.1, color: '#8b5cf6' }
   ];
+
+  // Mock historical portfolio performance data (last 30 days)
+  const performanceData = {
+    labels: ['Day 1', 'Day 5', 'Day 10', 'Day 15', 'Day 20', 'Day 25', 'Day 30'],
+    datasets: [
+      {
+        label: 'Portfolio Value',
+        data: [75000, 76200, 77500, 76800, 78200, 78900, totalMarketValue],
+        borderColor: '#3b82f6',
+        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        fill: true,
+        tension: 0.4,
+      },
+    ],
+  };
+
+  const performanceOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: false,
+      },
+      tooltip: {
+        mode: 'index' as const,
+        intersect: false,
+        callbacks: {
+          label: function(context: any) {
+            return `KES ${context.parsed.y.toLocaleString()}`;
+          }
+        }
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: false,
+        ticks: {
+          callback: function(value: any) {
+            return 'KES ' + value.toLocaleString();
+          }
+        }
+      }
+    }
+  };
+
+  // Asset allocation pie chart data
+  const allocationData = {
+    labels: assetAllocation.map(a => a.sector),
+    datasets: [
+      {
+        data: assetAllocation.map(a => a.value),
+        backgroundColor: assetAllocation.map(a => a.color),
+        borderWidth: 2,
+        borderColor: '#fff',
+      },
+    ],
+  };
+
+  const pieOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'bottom' as const,
+        labels: {
+          padding: 15,
+          font: {
+            size: 12
+          }
+        }
+      },
+      tooltip: {
+        callbacks: {
+          label: function(context: any) {
+            const value = context.parsed;
+            const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0);
+            const percentage = ((value / total) * 100).toFixed(1);
+            return `${context.label}: KES ${value.toLocaleString()} (${percentage}%)`;
+          }
+        }
+      }
+    }
+  };
 
   const totalAllocation = assetAllocation.reduce((sum, a) => sum + a.value, 0);
 
@@ -253,8 +361,58 @@ const PortfolioPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Asset Allocation */}
+          {/* Performance Trend Chart */}
           <div className="content-card" style={{marginBottom: '24px'}}>
+            <div className="card-header">
+              <h2>Portfolio Performance (30 Days)</h2>
+            </div>
+            <div style={{padding: '20px', height: '300px'}}>
+              <Line data={performanceData} options={performanceOptions} />
+            </div>
+          </div>
+
+          {/* Charts Grid */}
+          <div style={{display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px', marginBottom: '24px'}}>
+            {/* Asset Allocation Progress Bars */}
+            <div className="content-card">
+              <div className="card-header">
+                <h2>Asset Allocation</h2>
+              </div>
+              <div style={{padding: '20px'}}>
+                <div style={{marginBottom: '20px'}}>
+                  {assetAllocation.map((asset, index) => (
+                    <div key={index} style={{marginBottom: '16px'}}>
+                      <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '14px'}}>
+                        <span style={{fontWeight: '500'}}>{asset.sector}</span>
+                        <span style={{color: '#666'}}>KES {asset.value.toLocaleString()} ({((asset.value / totalAllocation) * 100).toFixed(1)}%)</span>
+                      </div>
+                      <div style={{height: '8px', backgroundColor: '#f3f4f6', borderRadius: '4px', overflow: 'hidden'}}>
+                        <div style={{
+                          height: '100%',
+                          width: `${(asset.value / totalAllocation) * 100}%`,
+                          backgroundColor: asset.color,
+                          transition: 'width 0.3s ease'
+                        }}></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Pie Chart */}
+            <div className="content-card">
+              <div className="card-header">
+                <h2>Allocation Breakdown</h2>
+              </div>
+              <div style={{padding: '20px', height: '300px'}}>
+                <Pie data={allocationData} options={pieOptions} />
+              </div>
+            </div>
+          </div>
+
+          {/* Asset Allocation */}
+          <div className="content-card" style={{marginBottom: '24px', display: 'none'}}>
             <div className="card-header">
               <h2>Asset Allocation</h2>
             </div>

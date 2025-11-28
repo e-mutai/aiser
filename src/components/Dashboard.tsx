@@ -2,6 +2,29 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Layout from './Layout';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+} from 'chart.js';
+import { Line } from 'react-chartjs-2';
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
 
 interface RiskMetric {
   label: string;
@@ -56,6 +79,68 @@ const Dashboard: React.FC = () => {
   
   const timeframes = ['1D', '1W', '1M', '1Y'];
   const [selectedTimeframe, setSelectedTimeframe] = useState('1D');
+
+  // Historical NASI index data for line chart
+  const nasiHistoricalData = {
+    '1D': {
+      labels: ['9:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00'],
+      data: [128.2, 128.5, 128.3, 128.7, 129.0, 128.8, 129.2]
+    },
+    '1W': {
+      labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+      data: [127.5, 128.0, 128.3, 128.8, 129.2]
+    },
+    '1M': {
+      labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+      data: [125.0, 126.5, 128.0, 129.2]
+    },
+    '1Y': {
+      labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+      data: [118.0, 119.5, 121.0, 123.5, 122.0, 124.0, 125.5, 126.0, 127.5, 128.0, 128.5, 129.2]
+    }
+  };
+
+  const currentData = nasiHistoricalData[selectedTimeframe as keyof typeof nasiHistoricalData];
+
+  const chartData = {
+    labels: currentData.labels,
+    datasets: [
+      {
+        label: 'NASI Index',
+        data: currentData.data,
+        borderColor: '#10b981',
+        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+        fill: true,
+        tension: 0.4,
+        pointRadius: 3,
+        pointHoverRadius: 5,
+      },
+    ],
+  };
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: false,
+      },
+      tooltip: {
+        mode: 'index' as const,
+        intersect: false,
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: false,
+        ticks: {
+          callback: function(value: any) {
+            return value.toFixed(1);
+          }
+        }
+      }
+    }
+  };
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -361,6 +446,16 @@ const Dashboard: React.FC = () => {
                 {marketLoading ? '...' : nseData?.stocks?.length || '67'}
               </span>
               <span className="stat-small-desc">NSE Stocks</span>
+            </div>
+          </div>
+
+          {/* NASI Historical Chart */}
+          <div className="content-card" style={{marginBottom: '24px'}}>
+            <div className="card-header">
+              <h2>NASI Index Historical Trend</h2>
+            </div>
+            <div style={{padding: '20px', height: '300px'}}>
+              <Line data={chartData} options={chartOptions} />
             </div>
           </div>
 

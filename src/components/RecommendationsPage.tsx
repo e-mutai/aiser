@@ -33,11 +33,29 @@ const RecommendationsPage: React.FC = () => {
       setError(null);
       try {
         const token = localStorage.getItem('aiser_token');
+        
+        if (!token) {
+          setError('Please login to view recommendations');
+          navigate('/login');
+          return;
+        }
+        
         const resp = await fetch('http://localhost:5000/api/recommendations?count=5', {
           headers: {
-            Authorization: token ? `Bearer ${token}` : ''
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
           }
         });
+        
+        if (resp.status === 401 || resp.status === 403) {
+          // Token expired or invalid
+          localStorage.removeItem('aiser_token');
+          localStorage.removeItem('aiser_user');
+          setError('Session expired. Please login again');
+          setTimeout(() => navigate('/login'), 2000);
+          return;
+        }
+        
         if (!resp.ok) {
           const txt = await resp.text();
           throw new Error(txt || 'Failed to fetch recommendations');
