@@ -184,7 +184,7 @@ async function saveToMongoDB(data) {
     
     await marketDataCollection.insertOne(snapshot);
     
-    // Save individual stock prices
+    // Save individual stock prices for historical tracking
     const stockPricesCollection = db.collection(COLLECTIONS.STOCK_PRICES);
     const stockDocuments = data.stocks.map(stock => ({
       ...stock,
@@ -194,6 +194,36 @@ async function saveToMongoDB(data) {
     
     if (stockDocuments.length > 0) {
       await stockPricesCollection.insertMany(stockDocuments);
+    }
+    
+    // Save to training data collection (for ML model retraining)
+    const trainingDataCollection = db.collection(COLLECTIONS.TRAINING_DATA);
+    const today = new Date().toISOString().split('T')[0];
+    
+    const trainingDocuments = data.stocks.map(stock => ({
+      Date: today,
+      Ticker: stock.ticker,
+      Name: stock.name,
+      'Day Price': stock.price,
+      'Previous': stock.price - stock.change,
+      'Change': stock.change,
+      'Change%': stock.changePercent,
+      'Volume': stock.volume,
+      timestamp: new Date(),
+      source: 'scraper'
+    }));
+    
+    if (trainingDocuments.length > 0) {
+      // Use upsert to avoid duplicates for the same date/ticker
+      const bulkOps = trainingDocuments.map(doc => ({
+        updateOne: {
+          filter: { Date: doc.Date, Ticker: doc.Ticker },
+          update: { $set: doc },
+          upsert: true
+        }
+      }));
+      
+      await trainingDataCollection.bulkWrite(bulkOps);
     }
     
     console.log('✅ Market data saved to MongoDB');

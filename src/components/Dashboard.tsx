@@ -79,28 +79,16 @@ const Dashboard: React.FC = () => {
   
   const timeframes = ['1D', '1W', '1M', '1Y'];
   const [selectedTimeframe, setSelectedTimeframe] = useState('1D');
+  const [nasiHistoricalData, setNasiHistoricalData] = useState<{
+    labels: string[];
+    data: number[];
+  }>({
+    labels: ['Loading...'],
+    data: [0]
+  });
+  const [historicalLoading, setHistoricalLoading] = useState(true);
 
-  // Historical NASI index data for line chart
-  const nasiHistoricalData = {
-    '1D': {
-      labels: ['9:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00'],
-      data: [128.2, 128.5, 128.3, 128.7, 129.0, 128.8, 129.2]
-    },
-    '1W': {
-      labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
-      data: [127.5, 128.0, 128.3, 128.8, 129.2]
-    },
-    '1M': {
-      labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
-      data: [125.0, 126.5, 128.0, 129.2]
-    },
-    '1Y': {
-      labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-      data: [118.0, 119.5, 121.0, 123.5, 122.0, 124.0, 125.5, 126.0, 127.5, 128.0, 128.5, 129.2]
-    }
-  };
-
-  const currentData = nasiHistoricalData[selectedTimeframe as keyof typeof nasiHistoricalData];
+  const currentData = nasiHistoricalData;
 
   const chartData = {
     labels: currentData.labels,
@@ -198,6 +186,34 @@ const Dashboard: React.FC = () => {
     const interval = setInterval(fetchMarketData, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    // Fetch historical NASI data when timeframe changes
+    const fetchHistoricalData = async () => {
+      try {
+        setHistoricalLoading(true);
+        const response = await fetch(`http://localhost:5000/api/market/nasi-history?timeframe=${selectedTimeframe}`);
+        if (response.ok) {
+          const result = await response.json();
+          setNasiHistoricalData({
+            labels: result.labels,
+            data: result.data
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching historical NASI data:', error);
+        // Fallback to dummy data on error
+        setNasiHistoricalData({
+          labels: ['No data'],
+          data: [0]
+        });
+      } finally {
+        setHistoricalLoading(false);
+      }
+    };
+
+    fetchHistoricalData();
+  }, [selectedTimeframe]);
 
   useEffect(() => {
     // Fetch real recommendations and calculate risk metrics
@@ -455,7 +471,13 @@ const Dashboard: React.FC = () => {
               <h2>NASI Index Historical Trend</h2>
             </div>
             <div style={{padding: '20px', height: '300px'}}>
-              <Line data={chartData} options={chartOptions} />
+              {historicalLoading ? (
+                <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%'}}>
+                  <span>Loading historical data...</span>
+                </div>
+              ) : (
+                <Line data={chartData} options={chartOptions} />
+              )}
             </div>
           </div>
 

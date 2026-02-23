@@ -389,6 +389,92 @@ router.get('/market/top-volume', async (req, res) => {
   }
 });
 
+// Get historical NASI data - GET /api/market/nasi-history
+router.get('/market/nasi-history', async (req, res) => {
+  try {
+    const timeframe = req.query.timeframe || '1M';
+    
+    // Use scraper directly to get current data
+    const currentData = await fetchNSEData();
+    const currentValue = currentData.nasi.value || 134.5;
+    const changePercent = parseFloat(currentData.nasi.changePercent) || 0;
+    const ytdChange = currentData.nasi.ytdChange || 0;
+    const ytdStartValue = currentValue - ytdChange;
+    
+    // Generate realistic historical data based on current value (all 1 month intervals)
+    const labels = [];
+    const data = [];
+    
+    if (timeframe === '1D') {
+      // 1 month worth of daily data
+      const daysInMonth = 30;
+      const volatility = 0.01; // 1% daily volatility
+      for (let i = 0; i < daysInMonth; i++) {
+        labels.push(`Day ${i + 1}`);
+        const variation = (Math.random() - 0.5) * 2 * volatility * currentValue;
+        const progress = i / (daysInMonth - 1);
+        const monthChange = changePercent * 0.05; // Assume today's change is ~5% of monthly
+        const value = currentValue - (currentValue * monthChange / 100) * (1 - progress) + variation;
+        data.push(parseFloat(value.toFixed(2)));
+      }
+    } else if (timeframe === '1W') {
+      // 1 month of weekly data (4 weeks)
+      const weeks = ['Week 1', 'Week 2', 'Week 3', 'Week 4'];
+      const volatility = 0.02; // 2% weekly volatility
+      for (let i = 0; i < weeks.length; i++) {
+        labels.push(weeks[i]);
+        const variation = (Math.random() - 0.5) * 2 * volatility * currentValue;
+        const progress = i / (weeks.length - 1);
+        const monthChange = changePercent * 0.05; // Assume today's change is ~5% of monthly
+        const value = currentValue - (currentValue * monthChange / 100) * (1 - progress) + variation;
+        data.push(parseFloat(value.toFixed(2)));
+      }
+    } else if (timeframe === '1M') {
+      // 1 month of daily data
+      const daysInMonth = 30;
+      const volatility = 0.01; // 1% daily volatility
+      for (let i = 0; i < daysInMonth; i++) {
+        labels.push(`Day ${i + 1}`);
+        const variation = (Math.random() - 0.5) * 2 * volatility * currentValue;
+        const progress = i / (daysInMonth - 1);
+        const monthChange = changePercent * 0.05; // Assume today's change is ~5% of monthly
+        const value = currentValue - (currentValue * monthChange / 100) * (1 - progress) + variation;
+        data.push(parseFloat(value.toFixed(2)));
+      }
+    } else if (timeframe === '1Y') {
+      // 12 months of data
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const currentMonth = new Date().getMonth();
+      
+      for (let i = 0; i <= currentMonth; i++) {
+        labels.push(months[i]);
+        const progress = i / Math.max(currentMonth, 1);
+        const volatility = 0.03 * currentValue; // 3% volatility
+        const variation = (Math.random() - 0.5) * 2 * volatility;
+        const value = ytdStartValue + (ytdChange * progress) + variation;
+        data.push(parseFloat(value.toFixed(2)));
+      }
+    }
+    
+    res.json({
+      success: true,
+      timeframe,
+      labels,
+      data,
+      currentValue,
+      source: 'generated'
+    });
+    
+  } catch (error) {
+    console.error('❌ NASI history error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch historical NASI data',
+      error: error.message
+    });
+  }
+});
+
 // ============================================
 // RECOMMENDATIONS ROUTES
 // ============================================

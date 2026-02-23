@@ -1,28 +1,38 @@
 const { spawn } = require('child_process');
 const path = require('path');
+const { fetchNSEData } = require('./scraper');
 
 // In-memory cache for recommendations
 const cache = new Map();
 const CACHE_TTL = 3600000; // 1 hour in milliseconds
 
 /**
- * Generate recommendations by calling Python ML model
+ * Generate recommendations by calling Python ML model with real-time data
  * @param {number} riskScore - User's risk score (0-100)
  * @param {string} horizon - Investment horizon: 'short', 'medium', 'long'
  * @param {number} topCount - Number of recommendations to return
  * @returns {Promise<Array>} Array of recommendation objects
  */
-function generateRecommendations(riskScore = 50, horizon = 'medium', topCount = 5) {
+async function generateRecommendations(riskScore = 50, horizon = 'medium', topCount = 5) {
+  const cacheKey = `${riskScore}-${horizon}-${topCount}`;
+  const cached = cache.get(cacheKey);
+
+  // Return cached result if still valid
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    console.log('✅ Returning cached recommendations');
+    return cached.data;
+  }
+
+  // Fetch real-time NSE data
+  let realtimeData = null;
+  try {
+    realtimeData = await fetchNSEData();
+    console.log(`✅ Fetched real-time data: ${realtimeData.stocks?.length || 0} stocks`);
+  } catch (error) {
+    console.warn('⚠️ Could not fetch real-time data, proceeding with historical only:', error.message);
+  }
+
   return new Promise((resolve, reject) => {
-    const cacheKey = `${riskScore}-${horizon}-${topCount}`;
-    const cached = cache.get(cacheKey);
-
-    // Return cached result if still valid
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-      console.log('✅ Returning cached recommendations');
-      return resolve(cached.data);
-    }
-
     // Call Python model
     const pythonPath = path.join(__dirname, 'ml', 'venv', 'bin', 'python');
     const scriptPath = path.join(__dirname, 'ml', 'recommender', 'predict.py');
@@ -34,14 +44,21 @@ function generateRecommendations(riskScore = 50, horizon = 'medium', topCount = 
       PYTHONPATH: path.join(__dirname, 'ml')
     });
 
-    const pythonProcess = spawn(pythonPath, [
+    const args = [
       scriptPath,
       '--model', modelPath,
       '--csv', csv2023, csv2024,
       '--risk', riskScore.toString(),
       '--horizon', horizon,
       '--top', topCount.toString()
-    ], { env: pythonEnv });
+    ];
+
+    // Add real-time data as JSON argument if available
+    if (realtimeData) {
+      args.push('--realtime', JSON.stringify(realtimeData));
+    }
+
+    const pythonProcess = spawn(pythonPath, args, { env: pythonEnv });
 
     let pythonOutput = '';
     let pythonError = '';

@@ -50,6 +50,7 @@ async function closeMongoDB() {
 const COLLECTIONS = {
   MARKET_DATA: 'market_data',
   STOCK_PRICES: 'stock_prices',
+  TRAINING_DATA: 'training_data',
   RECOMMENDATIONS: 'recommendations',
   TRANSACTIONS: 'transactions',
   PORTFOLIO: 'portfolio'

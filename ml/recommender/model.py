@@ -6,12 +6,13 @@ from sklearn.metrics import mean_squared_error
 from joblib import dump, load
 from typing import List, Tuple, Dict, Any
 import os
+from datetime import datetime, timedelta
 
 
 def load_csvs(paths: List[str]) -> pd.DataFrame:
     dfs = []
     for p in paths:
-        df = pd.read_csv(p, parse_dates=['Date'], dayfirst=True)
+        df = pd.read_csv(p, parse_dates=['Date'], dayfirst=True, date_format='%d/%m/%Y')
         dfs.append(df)
     data = pd.concat(dfs, ignore_index=True)
     data['Date'] = pd.to_datetime(data['Date'], dayfirst=True, errors='coerce')
@@ -25,7 +26,8 @@ def preprocess(df: pd.DataFrame) -> pd.DataFrame:
     # Clean numeric columns that may contain commas or dashes
     for col in ['12m Low', '12m High', 'Day Low', 'Day High', 'Day Price', 'Previous', 'Change', 'Change%', 'Volume', 'Adjusted Price']:
         if col in df.columns:
-            df[col] = df[col].astype(str).str.replace(',', '').str.replace('%', '').replace('-', np.nan)
+            df[col] = df[col].astype(str).str.replace(',', '', regex=False).str.replace('%', '', regex=False)
+            df[col] = df[col].replace('-', np.nan).infer_objects(copy=False)
             df[col] = pd.to_numeric(df[col], errors='coerce')
 
     # Some CSVs use 'Code' for ticker
@@ -200,9 +202,52 @@ def map_to_recommendation(row: pd.Series, user_risk_score: int, portfolio_divers
     }
 
 
-def generate_recommendations(model_path: str, data_paths: List[str], user_profile: Dict[str, Any], top_k: int = 5) -> List[Dict[str, Any]]:
+def merge_realtime_data(historical_df: pd.DataFrame, realtime_data: Dict[str, Any]) -> pd.DataFrame:
+    """Merge real-time scraped NSE data with historical data"""
+    if not realtime_data or 'stocks' not in realtime_data:
+        return historical_df
+    
+    today = pd.Timestamp(datetime.now().date())
+    realtime_rows = []
+    
+    for stock in realtime_data['stocks']:
+        row = {
+            'Date': today,
+            'Ticker': stock.get('ticker', ''),
+            'Day Price': stock.get('price', 0),
+            'Previous': stock.get('price', 0) - stock.get('change', 0),
+            'Volume': stock.get('volume', 0),
+            'Name': stock.get('name', '')
+        }
+        realtime_rows.append(row)
+    
+    if realtime_rows:
+        rt_df = pd.DataFrame(realtime_rows)
+        rt_df['Date'] = pd.to_datetime(rt_df['Date'])
+        # Combine with historical data, removing any duplicates for today
+        combined = pd.concat([historical_df[historical_df['Date'] < today], rt_df], ignore_index=True)
+        return combined
+    
+    return historical_df
+
+
+def generate_recommendations(model_path: str, data_paths: List[str], user_profile: Dict[str, Any], top_k: int = 5, realtime_data: Dict[str, Any] = None) -> List[Dict[str, Any]]:
+    """Generate recommendations using historical data + real-time scraped data
+    
+    Args:
+        model_path: Path to trained model
+        data_paths: Paths to historical CSV files
+        user_profile: User risk profile and preferences
+        top_k: Number of recommendations to return
+        realtime_data: Real-time NSE data from scraper (optional)
+    """
     df = load_csvs(data_paths)
     df = preprocess(df)
+    
+    # Merge real-time data if available
+    if realtime_data:
+        df = merge_realtime_data(df, realtime_data)
+    
     feat = engineer_features(df)
     model = load_model(model_path)
     universe = predict_universe(model, feat, top_n=200)
@@ -215,6 +260,15 @@ def generate_recommendations(model_path: str, data_paths: List[str], user_profil
     recs = []
     for _, row in universe.head(100).iterrows():
         rec = map_to_recommendation(row, user_risk, diversification_score, desired_horizon)
+        # Add company name if available
+        ticker = rec['ticker']
+        if realtime_data and 'stocks' in realtime_data:
+            for stock in realtime_data['stocks']:
+                if stock.get('ticker') == ticker:
+                    rec['company'] = stock.get('name', ticker)
+                    break
+        if 'company' not in rec:
+            rec['company'] = ticker
         recs.append(rec)
 
     # sort by confidence and predicted return
